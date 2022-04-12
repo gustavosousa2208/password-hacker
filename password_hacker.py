@@ -1,5 +1,17 @@
+import itertools
 import socket
 import sys
+
+
+def password_generator(length):
+    """
+    Generate a password
+    """
+    chars = [x for x in "abcdefghijklmnopqrstuvwxyz0123456789"]
+
+    possibilities = itertools.product(chars, repeat=length)
+
+    return possibilities
 
 
 def get_connection_data():
@@ -16,24 +28,31 @@ def get_connection_data():
 
     # use for command line arguments
     if len(sys.argv) >= 3:
-        ip, port, message = sys.argv[1], sys.argv[2], sys.argv[3]
-    return ip, int(port), message
+        ip, port = sys.argv[1], sys.argv[2]
+    return ip, int(port)
 
 
-def connection(ip=None, port=None, message=None):
-    if ip is None or port is None or message is None:
-        ip, port, message = get_connection_data()
+def connection(ip=None, port=None):
+    if ip is None or port is None:
+        ip, port = get_connection_data()
     response = ""
-    try:
-        with socket.socket() as sock:
+    file = open("password.txt", "w")
+    with socket.socket() as sock:
+        try:
             sock.connect((ip, port))
-            sock.send(message.encode())
-            response = sock.recv(1024)
-    except ConnectionRefusedError:
-        print(response.decode())
+            # password length range
+            for x in range(1, 6):
+                for password in password_generator(x):
+                    password = "".join(password)
+                    sock.send(password.encode())
+                    response = sock.recv(1024).decode()
+                    print(password, response, file=file)
+                    if response == "Connection success!":
+                        print(password)
+                        sys.exit(0)
 
-    if response:
-        print(response.decode())
+        except ConnectionRefusedError:
+            print(response)
 
 
 if __name__ == "__main__":
